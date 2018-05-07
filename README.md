@@ -17,11 +17,12 @@ Example usage:
         u8 pub[32] = {0};
         u8 priv[32] = {0};
         u8 pub_decode[32] = {0};
-
+        //encode
         while (!valid){
                 randombytes(priv,sizeof(priv));
                 valid = crypto_box_keypair_elligator(pub, repr, priv);
         }
+        //decode
         decode_repr(pub_decode,repr);
 
 ## links:
