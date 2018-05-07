@@ -269,4 +269,8 @@ extern int crypto_verify_32_tweet(const unsigned char *,const unsigned char *);
 #define crypto_verify_32_BYTES crypto_verify_32_tweet_BYTES
 #define crypto_verify_32_VERSION crypto_verify_32_tweet_VERSION
 #define crypto_verify_32_IMPLEMENTATION "crypto_verify/32/tweet"
+
+int crypto_box_keypair_elligator(unsigned char *pk, unsigned char *rep, const unsigned char *sk);
+void decode_repr(unsigned char *pk, const unsigned char *rep);
+
 #endif
