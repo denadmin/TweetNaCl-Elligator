@@ -9,6 +9,35 @@ typedef long long i64;
 typedef i64 gf[16];
 extern void randombytes(u8 *,u64);
 
+static const u8 sqrtMinusABytes[32] = {
+  0xe7, 0x81, 0xba, 0x00, 0x55, 0xfb, 0x91, 0x33,
+  0x7d, 0xe5, 0x82, 0xb4, 0x2e, 0x2c, 0x5e, 0x3a,
+  0x81, 0xb0, 0x03, 0xfc, 0x23, 0xf7, 0x84, 0x2d,
+  0x44, 0xf9, 0x5f, 0x9f, 0x0b, 0x12, 0xd9, 0x70,
+};
+
+static const u8 sqrtMinusHalfBytes[32] = {
+  0x9f, 0xaf, 0xf8, 0x5a, 0x6c, 0xf2, 0x88, 0x9d,
+  0xc3, 0x0d, 0x68, 0xa9, 0xfc, 0x73, 0x5e, 0x68,
+  0x2c, 0x14, 0x02, 0x61, 0xb3, 0x7f, 0x59, 0x6a,
+  0x7a, 0x10, 0x1f, 0xd8, 0xbf, 0x6d, 0x3e, 0x2a,
+};
+
+static const u8 sqrtM1Bytes[32] = {
+  0xb0, 0xa0, 0x0e, 0x4a, 0x27, 0x1b, 0xee, 0xc4,
+  0x78, 0xe4, 0x2f, 0xad, 0x06, 0x18, 0x43, 0x2f,
+  0xa7, 0xd7, 0xfb, 0x3d, 0x99, 0x00, 0x4d, 0x2b,
+  0x0b, 0xdf, 0xc1, 0x4f, 0x80, 0x24, 0x83, 0x2b,
+};
+
+
+static const u8 halfQMinus1Bytes[32] = {
+  0xf6, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+  0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3f,
+};
+
 static const u8
   _0[16],
   _9[32] = {9};
@@ -20,7 +49,8 @@ static const gf
   D2 = {0xf159, 0x26b2, 0x9b94, 0xebd6, 0xb156, 0x8283, 0x149a, 0x00e0, 0xd130, 0xeef3, 0x80f2, 0x198e, 0xfce7, 0x56df, 0xd9dc, 0x2406},
   X = {0xd51a, 0x8f25, 0x2d60, 0xc956, 0xa7b2, 0x9525, 0xc760, 0x692c, 0xdc5c, 0xfdd6, 0xe231, 0xc0a4, 0x53fe, 0xcd6e, 0x36d3, 0x2169},
   Y = {0x6658, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666},
-  I = {0xa0b0, 0x4a0e, 0x1b27, 0xc4ee, 0xe478, 0xad2f, 0x1806, 0x2f43, 0xd7a7, 0x3dfb, 0x0099, 0x2b4d, 0xdf0b, 0x4fc1, 0x2480, 0x2b83};
+  I = {0xa0b0, 0x4a0e, 0x1b27, 0xc4ee, 0xe478, 0xad2f, 0x1806, 0x2f43, 0xd7a7, 0x3dfb, 0x0099, 0x2b4d, 0xdf0b, 0x4fc1, 0x2480, 0x2b83},
+  _486662 = {0x6D06, 0x7};
 
 static u32 L32(u32 x,int c) { return (x << c) | ((x&0xffffffff) >> (32 - c)); }
 
@@ -806,4 +836,220 @@ int crypto_sign_open(u8 *m,u64 *mlen,const u8 *sm,u64 n,const u8 *pk)
   FOR(i,n) m[i] = sm[i + 64];
   *mlen = n;
   return 0;
+}
+
+// elligator
+static u8
+LE(const u8 a[32], const u8 b[32]) {
+  int equalSoFar = -1;
+  int greater = 0;
+
+  for (int i = 31; i >= 0; i--) {
+    int x = a[i];
+    int y = b[i];
+
+    greater = (~equalSoFar & greater) | (equalSoFar & ((x - y) >> 31));
+    equalSoFar = equalSoFar & (((x ^ y)  - 1) >> 31);
+  }
+
+  return (u8)(~equalSoFar & 1 & greater);
+}
+
+void q58(gf out, const gf z) {
+  gf t1, t2, t3;
+  int i;
+
+  S(t1,z);
+  M(t1,t1,z);
+  S(t1,t1);
+  S(t2,t1);
+  S(t2,t2);
+  M(t2,t2,t1);
+  M(t1,t2,z);
+  S(t2,t1);
+  FOR (i,4) S(t2,t2);
+  M(t1,t1,t2);
+  S(t2,t1);
+  FOR (i,9) S(t2,t2);
+  M(t2,t1,t2);
+  S(t3,t2);
+  FOR(i,19) S(t3,t3);
+  M(t2,t2,t3);
+  S(t2,t2);
+  FOR(i,9) S(t2,t2);
+  M(t1,t1,t2);
+  S(t2,t1);
+  FOR(i,49) S(t2,t2);
+  M(t2,t1,t2);
+  S(t3,t2);
+  FOR(i,99) S(t3,t3);
+  M(t2,t3,t2);
+  S(t2,t2);
+  FOR(i,49) S(t2,t2);
+  M(t1,t2,t1);
+  S(t1,t1);
+  S(t1,t1);
+  M(out,t1,z);
+}
+
+int crypto_box_keypair_elligator(u8 *pk, u8 *rep, const u8 *sk)
+{
+  u8 d[32];
+  gf p[4];
+  gf zi,inv1,t0,u,v,sqrtMinusA,b,c,b3,b8,chi,r1,sqrtMinusHalf,sqrtM1,maybeSqrtM1,r;
+  int i;
+
+  unpack25519(sqrtMinusA,sqrtMinusABytes);
+  unpack25519(sqrtMinusHalf,sqrtMinusHalfBytes);
+  unpack25519(sqrtM1,sqrtM1Bytes);
+  FOR(i,32) d[i] = sk[i];
+
+  d[0] &= 248;
+  d[31] &= 127;
+  d[31] |= 64;
+
+  scalarbase(p,d);
+
+  inv25519(zi, p[2]); 
+  M(p[0], p[0], zi);
+  M(p[1], p[1], zi);
+  set25519(p[2],gf1);
+  Z(inv1,p[2],p[1]);
+  M(inv1,inv1,p[0]);
+  inv25519(inv1,inv1);
+  M(u,inv1,p[0]);
+  A(t0,p[1],p[2]);
+  M(u,u,t0);
+  M(v,t0,inv1);
+  M(v,v,p[2]);
+  M(v,v,sqrtMinusA);
+  A(b,u,_486662);
+  S(b3,b);
+  M(b3,b3,b);
+  S(c,b3);
+  M(c,c,b);
+  M(b8,c,b);
+  M(c,c,u);
+  q58(c,c);
+  S(chi,c);
+  S(chi,chi);
+  S(t0,u);
+  M(chi,chi,t0);
+  S(t0,b);
+  M(t0,t0,b);
+  S(t0,t0);
+  M(t0,b,t0);
+  S(t0,t0);
+  M(chi,chi,t0);
+  Z(chi,gf0,chi);
+  pack25519(d,chi);
+
+  if (d[1] == 0xff) return 0;
+
+  M(r1,c,u);
+  M(r1,r1,b3);
+  M(r1,r1,sqrtMinusHalf);
+  M(t0,r1,r1);
+  M(t0,t0,b);
+  A(t0,t0,t0);
+  A(t0,u,t0);
+  set25519(maybeSqrtM1,gf1);
+  sel25519(maybeSqrtM1,sqrtM1,(neq25519(t0,gf0)!=0));
+  M(r1,maybeSqrtM1,r1);
+  S(t0,c);
+  M(t0,t0,c);
+  S(t0,t0);
+  M(r,t0,c);
+  S(t0,u);
+  M(t0,u,t0);
+  M(r,r,t0);
+  S(t0,b8);
+  M(t0,t0,b8);
+  M(t0,t0,b);
+  M(r,r,t0);
+  M(r,r,sqrtMinusHalf);
+  S(t0,r);
+  M(t0,t0,u);
+  A(t0,t0,t0);
+  A(t0,t0,b);
+  set25519(maybeSqrtM1,gf1);
+  sel25519(maybeSqrtM1,sqrtM1,(neq25519(t0,gf0)!=0));  
+  M(r,r,maybeSqrtM1);
+  pack25519(d,v);
+  sel25519(r,r1,LE(d, halfQMinus1Bytes));
+  pack25519(d,r);  
+  Z(r1,gf0,r);
+  sel25519(r,r1,(1 & ~LE(d, halfQMinus1Bytes)));
+  pack25519(pk,u);
+  pack25519(rep,r);
+  return 1;
+}
+
+sv chi(gf out, const gf z) {
+  gf t0, t1, t2, t3;
+  int i;
+
+  S(t0,z);
+  M(t1,t0,z);
+  S(t0,t1);
+  S(t2,t0);
+  S(t2,t2);
+  M(t2,t2,t0);
+  M(t1,t2,z);
+  S(t2,t1);
+  FOR(i,4) S(t2,t2);
+  M(t1,t1,t2);
+  S(t2,t1);
+  FOR(i,9) S(t2,t2);
+  M(t2,t1,t2);
+  S(t3,t2);
+  FOR(i,19) S(t3,t3);
+  M(t2,t2,t3);
+  S(t2,t2);
+  FOR(i,9) S(t2,t2);
+  M(t1,t1,t2);
+  S(t2,t1);
+  FOR(i,49) S(t2,t2);
+  M(t2,t1,t2);
+  S(t3,t2);
+  FOR(i,99) S(t3,t3);
+  M(t2,t2,t3);
+  S(t2,t2);
+  FOR(i,49) S(t2,t2);
+  M(t1,t1,t2);
+  S(t1,t1);
+  FOR(i,3) S(t1,t1);
+  M(out,t1,t0);
+}
+
+void decode_repr(u8 *pk, const u8 *rep) {
+  u8 d[32];
+  u8 m1;
+  gf rr2, v, e, v2, v3, negV, pA;
+
+  unpack25519(rr2,rep);
+  S(rr2,rr2);
+  A(rr2,rr2,rr2);
+  rr2[0]++;
+
+  inv25519(rr2,rr2); 
+  M(v,rr2,_486662);
+  Z(v,gf0,v);
+  S(v2,v);
+  M(v3,v,v2);
+  A(e,v3,v);
+  M(v2,v2,_486662);
+  A(e,e,v2);
+
+  chi(e, e);
+
+  pack25519(d,e);
+  m1 = d[1] & 1;
+  Z(negV,gf0,v);
+  sel25519(v,negV,m1);  
+  set25519(v2,gf0);
+  set25519(pA,_486662);
+  sel25519(v2,pA,m1);  
+  Z(v,v,v2);
+  pack25519(pk,v);
 }
