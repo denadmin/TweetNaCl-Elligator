@@ -12,19 +12,17 @@ Heavily based on libelligator.
 
 Example usage:
 
-        int vaild = 0;
+        int valid = 0;
         u8 repr[32] = {0};
         u8 pub[32] = {0};
         u8 priv[32] = {0};
         u8 pub_decode[32] = {0};
-        // encode
-        while (!vaild){
-          randombytes(priv,sizeof(priv));
-          valid = elligator(pub, repr, priv);
+
+        while (!valid){
+                randombytes(priv,sizeof(priv));
+                valid = crypto_box_keypair_elligator(pub, repr, priv);
         }
-        // decode
         decode_repr(pub_decode,repr);
-        // now pub_decode eq pub
 
 ## links:
 * https://elligator.cr.yp.to/
